@@ -1,0 +1,5 @@
+indicator,indicator_type,threat_type,severity,confidence,splunk_owner,splunk_created_by,sentinel_source,sentinel_expiry_date,chronicle_priority
+qa-example.org,domain,c2,medium,95,ir-team,analyst6,,,
+qa1-example.org,domain,c2,medium,95,ir-team,analyst7,,,
+dev-example.org,domain,c2,medium,95,ir-team,analyst7,,,
+testdev-example.org,domain,c2,medium,95,ir-team,analyst7,,,

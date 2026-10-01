@@ -2,3 +2,4 @@ domain,category,severity,confidence,owner,created_by,indicator_type
 qa-example.org,c2,medium,95,ir-team,analyst6,domain
 qa1-example.org,c2,medium,95,ir-team,analyst7,domain
 dev-example.org,c2,medium,95,ir-team,analyst7,domain
+testdev-example.org,c2,medium,95,ir-team,analyst7,domain

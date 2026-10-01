@@ -1,0 +1,60 @@
+{
+  "manifest_version": 1,
+  "lookup_id": "LKP-002",
+  "lookup_name": "domain",
+  "generation_version": "v2",
+  "generation_mode": "canonical",
+  "source_commit_sha": "524c982115e8970bb65fc803aab20679d58bb985",
+  "created_at": "2026-10-01T07:56:11.293499+00:00",
+  "canonical": {
+    "path": "lookups/domain.csv",
+    "sha256": "d3d4aa4436b102275d4640460cba90dd56c69a3d3bd9b9a95699be33b14b5f11"
+  },
+  "configuration_snapshot": {
+    "deployment_config": {
+      "path": "config/deployment.yaml",
+      "sha256": "58e98747ec18e1bc155a5dacd08554eb627fe2cc70aa29ead7b6f8aa979ce38b"
+    },
+    "versioned_files": [
+      {
+        "path": "generated/lookups/LKP-002/v2/domain.csv",
+        "sha256": "d3d4aa4436b102275d4640460cba90dd56c69a3d3bd9b9a95699be33b14b5f11"
+      },
+      {
+        "path": "generated/metadata/LKP-002/v2/metadata.yaml",
+        "sha256": "7c5a4230852a8996b548f1dff941c180fabdbcb4faad9c9b35cc28c6614d09b8"
+      },
+      {
+        "path": "generated/schema/LKP-002/v2/schema.yaml",
+        "sha256": "b564b932993d7492ca0de947f05ea24d547262631cc589a23cabde3d82cdda60"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v2/chronicle.yaml",
+        "sha256": "ce4be5a13987591b43c9173d6b31b74054292c32e756ee8556e829c0a4bc718e"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v2/sentinel.yaml",
+        "sha256": "d112f01256d0f50c19521c8395e37ba196390e4c8894c265129889daa1cf8b5a"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v2/splunk.yaml",
+        "sha256": "b10d0af3bab150aed9113dd5e1901d0e4f295bedcc41d249a54fef933ee4e7a5"
+      }
+    ]
+  },
+  "targets": {
+    "splunk": {
+      "lookup_name": "domain_lookup",
+      "path": "generated/splunk/LKP-002/domain_lookup.csv",
+      "sha256": "2a1ceff153365a8251c357733fe4de04d43e38206a04e6138ccf6d8ec741fa5f",
+      "row_count": 4
+    }
+  },
+  "deployment": {
+    "splunk": {
+      "status": "success",
+      "http_status": 200,
+      "message": "None"
+    }
+  }
+}

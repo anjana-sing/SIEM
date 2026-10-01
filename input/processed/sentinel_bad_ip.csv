@@ -1,0 +1,4 @@
+ip,category,severity,confidence,source,expiry_date
+192.168.10.10,c2,high,95,ThreatIntel,2026-12-31
+10.10.20.30,malware,critical,99,ThreatIntel,2026-11-30
+172.16.50.5,scanner,medium,80,SOC,2026-10-31

@@ -1,0 +1,53 @@
+splunk:
+  enabled: true
+  adapter: splunk
+  protocol: https
+  host: ${SPLUNK_HOST}
+  port: ""
+  endpoint: /servicesNS/nobody/lookup_editor/data/lookup_edit/lookup_contents
+  namespace: lookup_editor
+  owner: nobody
+  timeout: 60
+  verify_ssl: true
+  backup: false
+  is_new: false
+  authentication:
+    type: bearer
+    token_env: SPLUNK_TOKEN
+
+# Keep the connection/authentication settings here, once per SIEM.
+# The generic_json adapter is intentionally payload-configurable because
+# the exact Sentinel API contract must be supplied for your environment.
+sentinel:
+  enabled: true
+  adapter: generic_json
+  protocol: https
+  host: ${SENTINEL_HOST}
+  port: 443
+  endpoint: /<sentinel-endpoint>
+  timeout: 60
+  verify_ssl: true
+  authentication:
+    type: bearer
+    token_env: SENTINEL_TOKEN
+  payload:
+    lookup_name: ${LOOKUP_NAME}
+    rows: ${ROWS_JSON}
+
+# The Chronicle API contract can likewise be configured without changing
+# the Python engine.
+chronicle:
+  enabled: true
+  adapter: generic_json
+  protocol: https
+  host: ${CHRONICLE_HOST}
+  port: 443
+  endpoint: /<chronicle-endpoint>
+  timeout: 60
+  verify_ssl: true
+  authentication:
+    type: bearer
+    token_env: CHRONICLE_TOKEN
+  payload:
+    lookup_name: ${LOOKUP_NAME}
+    rows: ${ROWS_JSON}

@@ -1,0 +1,285 @@
+name: Generate Lookups
+
+on:
+  workflow_call:
+    inputs:
+      lookup_ids_json:
+        description: "Affected lookup IDs as JSON array"
+        required: true
+        type: string
+      lookup_modes_json:
+        description: "JSON object mapping each lookup ID to input or canonical"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lookup-generation-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate Canonical and SIEM Lookups
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Capture generation SHA and branch
+        shell: bash
+        run: |
+          echo "GENERATION_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "TARGET_BRANCH=${{ github.event.pull_request.head.ref }}" >> "$GITHUB_ENV"
+            echo "TARGET_REPO=${{ github.event.pull_request.head.repo.full_name }}" >> "$GITHUB_ENV"
+          else
+            echo "TARGET_BRANCH=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            echo "TARGET_REPO=${GITHUB_REPOSITORY}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Validate lookup modes
+        env:
+          LOOKUP_MODES_JSON: ${{ inputs.lookup_modes_json }}
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+          ids = json.loads(os.environ["LOOKUP_IDS_JSON"])
+          modes = json.loads(os.environ["LOOKUP_MODES_JSON"])
+          if not isinstance(ids, list) or not all(isinstance(x, str) and re.fullmatch(r"LKP-\d+", x) for x in ids):
+              raise SystemExit("lookup_ids_json must be a JSON array of valid lookup IDs")
+          if not isinstance(modes, dict) or set(modes) != set(ids) or not all(v in {"input", "canonical"} for v in modes.values()):
+              raise SystemExit("lookup_modes_json must map every lookup ID to input or canonical")
+          print(f"Lookup modes: {modes}")
+          PY
+
+      - name: Determine input and canonical lookup IDs
+        env:
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+          LOOKUP_MODES_JSON: ${{ inputs.lookup_modes_json }}
+        run: |
+          python - <<'PY'
+          import json, os
+          ids = json.loads(os.environ["LOOKUP_IDS_JSON"])
+          modes = json.loads(os.environ["LOOKUP_MODES_JSON"])
+          with open("input_lookup_ids.json", "w") as f:
+              json.dump([x for x in ids if modes[x] == "input"], f)
+          with open("canonical_lookup_ids.json", "w") as f:
+              json.dump([x for x in ids if modes[x] == "canonical"], f)
+          print("Input IDs:", json.dumps([x for x in ids if modes[x] == "input"]))
+          print("Canonical IDs:", json.dumps([x for x in ids if modes[x] == "canonical"]))
+          PY
+
+      - name: Generate/update canonical from input files
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDS="$(cat input_lookup_ids.json)"
+          if [ "$IDS" != "[]" ]; then
+            LOOKUP_IDS_JSON="$IDS" python src/build_canonical.py
+          else
+            echo "No input-mode lookups; skipping canonical build."
+          fi
+
+      - name: Validate canonical files directly
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDS="$(cat canonical_lookup_ids.json)"
+          if [ "$IDS" != "[]" ]; then
+            LOOKUP_IDS_JSON="$IDS" python src/generate_targets.py --validate-only
+          else
+            echo "No canonical-mode lookups; skipping canonical validation."
+          fi
+
+      - name: Generate SIEM target lookups
+        env:
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+        run: |
+          python src/generate_targets.py
+
+      - name: Verify all generated artifacts
+        env:
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          ids = json.loads(os.environ["LOOKUP_IDS_JSON"])
+          for lookup_id in ids:
+              for siem in ("splunk", "sentinel", "chronicle"):
+                  root = Path("generated") / siem / lookup_id
+                  # Disabled targets are allowed to have no directory.
+                  if root.exists():
+                      files = [p for p in root.rglob("*") if p.is_file()]
+                      if not files:
+                          raise SystemExit(f"{lookup_id}/{siem}: generated directory is empty")
+          print("Generated artifact verification passed.")
+          PY
+
+      - name: Create generation manifest
+        env:
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+          LOOKUP_MODES_JSON: ${{ inputs.lookup_modes_json }}
+          GENERATION_SHA: ${{ env.GENERATION_SHA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS= read -r lookup_id; do
+            [ -z "$lookup_id" ] && continue
+            args+=(--lookup-id "$lookup_id")
+          done < <(python - <<'PY'
+          import json, os
+          for item in json.loads(os.environ["LOOKUP_IDS_JSON"]):
+              print(item)
+          PY
+          )
+          python src/create_manifest.py \
+            "${args[@]}" \
+            --modes-json "$LOOKUP_MODES_JSON" \
+            --source-sha "$GENERATION_SHA"
+
+      - name: Verify source commit before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH" --quiet
+          REMOTE_SHA="$(git rev-parse "origin/$TARGET_BRANCH")"
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          if [ "$CURRENT_SHA" != "$GENERATION_SHA" ] || [ "$REMOTE_SHA" != "$GENERATION_SHA" ]; then
+            echo "The developer branch changed before deployment. Refusing deployment."
+            exit 1
+          fi
+
+      - name: Deploy SIEM target lookups
+        env:
+          LOOKUP_IDS_JSON: ${{ inputs.lookup_ids_json }}
+          SPLUNK_HOST: ${{ secrets.SPLUNK_HOST }}
+          SPLUNK_TOKEN: ${{ secrets.SPLUNK_TOKEN }}
+          SENTINEL_HOST: ${{ secrets.SENTINEL_HOST }}
+          SENTINEL_TOKEN: ${{ secrets.SENTINEL_TOKEN }}
+          CHRONICLE_HOST: ${{ secrets.CHRONICLE_HOST }}
+          CHRONICLE_TOKEN: ${{ secrets.CHRONICLE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS= read -r lookup_id; do
+            [ -z "$lookup_id" ] && continue
+            args+=(--lookup-id "$lookup_id")
+          done < <(python - <<'PY'
+          import json, os
+          for item in json.loads(os.environ["LOOKUP_IDS_JSON"]):
+              print(item)
+          PY
+          )
+          python src/deploy_targets.py "${args[@]}"
+
+      - name: Verify canonical and source commit after deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH" --quiet
+          REMOTE_SHA="$(git rev-parse "origin/$TARGET_BRANCH")"
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          if [ "$CURRENT_SHA" != "$GENERATION_SHA" ] || [ "$REMOTE_SHA" != "$GENERATION_SHA" ]; then
+            echo "The developer branch changed during deployment. No repository changes will be pushed."
+            exit 1
+          fi
+          echo "Canonical/source commit remained unchanged during deployment."
+
+      - name: Archive consumed input files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f processed_input_files.txt ]; then
+            echo "No processed input manifest was created; nothing to archive."
+            exit 0
+          fi
+          mkdir -p input/processed
+          while IFS= read -r source; do
+            [ -z "$source" ] && continue
+            case "$source" in
+              input/files/*) ;;
+              *) echo "Invalid processed input path: $source"; exit 1 ;;
+            esac
+            file="${source#input/files/}"
+            destination="input/processed/$file"
+            mkdir -p "$(dirname "$destination")"
+            if [ -e "$destination" ]; then
+              echo "Refusing to overwrite processed input: $destination"
+              exit 1
+            fi
+            git mv "$source" "$destination"
+          done < processed_input_files.txt
+
+      - name: Verify source commit has not changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH" --quiet
+          REMOTE_SHA="$(git rev-parse "origin/$TARGET_BRANCH")"
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          echo "Generation SHA: $GENERATION_SHA"
+          echo "Current SHA:    $CURRENT_SHA"
+          echo "Remote SHA:     $REMOTE_SHA"
+          if [ "$CURRENT_SHA" != "$GENERATION_SHA" ] || [ "$REMOTE_SHA" != "$GENERATION_SHA" ]; then
+            echo "The developer branch changed while generation was running."
+            echo "This generation is stale. No generated/canonical changes will be pushed."
+            exit 1
+          fi
+
+      - name: Commit generated artifacts to developer branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ "$TARGET_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "Pull request comes from a fork ($TARGET_REPO). The workflow cannot push generated artifacts to the fork branch with the repository token."
+            echo "Generation/validation succeeded, but no push was attempted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Add generated artifacts.
+          # Do not blindly pass input/processed/ to git add: when the
+          # input manifest contains no files, that directory is empty
+          # and Git has no path to add, which causes:
+          #   fatal: pathspec 'input/processed/' did not match any files
+          git add lookups/ generated/
+
+          if [ -d input/processed ] && find input/processed -type f -print -quit | grep -q .; then
+            # Force-add in case the repository has a broad ignore rule
+            # for processed/archive directories.
+            git add -f input/processed/
+          else
+            echo "No processed input files to stage."
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: generate lookup artifacts [skip lookup generation]"
+          git push origin "HEAD:$TARGET_BRANCH"
+
+      - name: Show final status
+        run: |
+          git status --short
+          echo "Generation completed successfully."

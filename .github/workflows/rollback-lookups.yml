@@ -1,0 +1,344 @@
+name: Rollback Lookups
+
+on:
+
+  workflow_dispatch:
+
+    inputs:
+
+      lookup_id:
+        description: "Lookup ID to rollback, for example LKP-001"
+        required: true
+        type: string
+
+      version:
+        description: "Version to restore, for example v1 or v2"
+        required: true
+        type: string
+
+      confirm:
+        description: "Type ROLLBACK to confirm"
+        required: true
+        type: string
+
+
+permissions:
+  contents: write
+
+
+jobs:
+
+  rollback:
+
+    name: Rollback Lookup
+
+    runs-on: ubuntu-latest
+
+
+    steps:
+
+      # ==========================================================
+      # Checkout
+      # ==========================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # ==========================================================
+      # Validate confirmation
+      # ==========================================================
+
+      - name: Validate rollback confirmation
+        shell: bash
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+
+        run: |
+
+          if [ "$CONFIRM" != "ROLLBACK" ]; then
+
+            echo "Rollback confirmation failed."
+
+            echo "Expected: ROLLBACK"
+
+            exit 1
+
+          fi
+
+          echo "Rollback confirmation accepted."
+
+
+      # ==========================================================
+      # Validate lookup ID
+      # ==========================================================
+
+      - name: Validate lookup ID
+        shell: bash
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+
+        run: |
+
+          if [[ ! "$LOOKUP_ID" =~ ^LKP-[0-9]+$ ]]; then
+
+            echo "Invalid lookup ID: $LOOKUP_ID"
+
+            echo "Expected format: LKP-001"
+
+            exit 1
+
+          fi
+
+          echo "Lookup ID: $LOOKUP_ID"
+
+
+      # ==========================================================
+      # Validate version
+      # ==========================================================
+
+      - name: Validate version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+
+        run: |
+
+          if [[ ! "$VERSION" =~ ^v[0-9]+$ ]]; then
+
+            echo "Invalid version: $VERSION"
+
+            echo "Expected format: v1, v2, v3..."
+
+            exit 1
+
+          fi
+
+          echo "Version: $VERSION"
+
+
+      # ==========================================================
+      # Validate requested version exists
+      # ==========================================================
+
+      - name: Validate version exists
+        shell: bash
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+          VERSION: ${{ inputs.version }}
+
+        run: |
+
+          echo "======================================"
+          echo "Rollback Validation"
+          echo "======================================"
+
+          echo "Lookup ID: $LOOKUP_ID"
+          echo "Version:   $VERSION"
+
+          echo ""
+
+
+          LOOKUP_VERSION_DIR="generated/lookups/$LOOKUP_ID/$VERSION"
+          METADATA_VERSION_DIR="generated/metadata/$LOOKUP_ID/$VERSION"
+          SCHEMA_VERSION_DIR="generated/schema/$LOOKUP_ID/$VERSION"
+          MAPPING_VERSION_DIR="generated/mapping/$LOOKUP_ID/$VERSION"
+
+
+          if [ ! -d "$LOOKUP_VERSION_DIR" ]; then
+
+            echo "Canonical version not found:"
+            echo "$LOOKUP_VERSION_DIR"
+
+            exit 1
+
+          fi
+
+
+          if [ ! -d "$METADATA_VERSION_DIR" ]; then
+
+            echo "Metadata version not found:"
+            echo "$METADATA_VERSION_DIR"
+
+            exit 1
+
+          fi
+
+
+          if [ ! -d "$SCHEMA_VERSION_DIR" ]; then
+
+            echo "Schema version not found:"
+            echo "$SCHEMA_VERSION_DIR"
+
+            exit 1
+
+          fi
+
+
+          if [ ! -d "$MAPPING_VERSION_DIR" ]; then
+
+            echo "Mapping version not found:"
+            echo "$MAPPING_VERSION_DIR"
+
+            exit 1
+
+          fi
+
+
+          echo "Version exists."
+
+
+      # ==========================================================
+      # Setup Python
+      # ==========================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+
+      # ==========================================================
+      # Install dependencies
+      # ==========================================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+
+      # ==========================================================
+      # Show current target files
+      # ==========================================================
+
+      - name: Show current SIEM files
+        shell: bash
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+
+        run: |
+
+          echo "======================================"
+          echo "Current SIEM Files"
+          echo "======================================"
+
+          find \
+            "generated/splunk/$LOOKUP_ID" \
+            "generated/sentinel/$LOOKUP_ID" \
+            "generated/chronicle/$LOOKUP_ID" \
+            -type f \
+            -print \
+            2>/dev/null \
+            | sort || true
+
+
+      # ==========================================================
+      # Rollback
+      # ==========================================================
+
+      - name: Rollback lookup
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+          VERSION: ${{ inputs.version }}
+
+        run: |
+
+          echo "======================================"
+          echo "Rolling Back Lookup"
+          echo "======================================"
+
+          echo "Lookup ID: $LOOKUP_ID"
+          echo "Version:   $VERSION"
+
+          echo ""
+
+          python src/rollback_targets.py \
+            --lookup-id "$LOOKUP_ID" \
+            --version "$VERSION"
+
+
+      # ==========================================================
+      # Show rollback result
+      # ==========================================================
+
+      - name: Show rollback result
+        shell: bash
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+
+        run: |
+
+          echo "======================================"
+          echo "Rollback Result"
+          echo "======================================"
+
+          find \
+            "generated/splunk/$LOOKUP_ID" \
+            "generated/sentinel/$LOOKUP_ID" \
+            "generated/chronicle/$LOOKUP_ID" \
+            -type f \
+            -print \
+            2>/dev/null \
+            | sort || true
+
+
+      # ==========================================================
+      # Show diff
+      # ==========================================================
+
+      - name: Show Git diff
+        run: |
+
+          echo "======================================"
+          echo "Rollback Diff"
+          echo "======================================"
+
+          git status --short
+
+          echo ""
+
+          git diff --stat
+
+
+      # ==========================================================
+      # Commit rollback
+      # ==========================================================
+
+      - name: Commit rollback
+        shell: bash
+        env:
+          LOOKUP_ID: ${{ inputs.lookup_id }}
+          VERSION: ${{ inputs.version }}
+
+        run: |
+
+          git config user.name \
+            "github-actions[bot]"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+
+          git add \
+            generated/splunk/"$LOOKUP_ID"/ \
+            generated/sentinel/"$LOOKUP_ID"/ \
+            generated/chronicle/"$LOOKUP_ID"/
+
+
+          if git diff --cached --quiet; then
+
+            echo "No rollback changes detected."
+
+            exit 0
+
+          fi
+
+
+          git commit \
+            -m "chore: rollback $LOOKUP_ID to $VERSION"
+
+
+          git push

@@ -1,0 +1,32 @@
+mappings:
+
+  - lookup_id: LKP-001
+    name: malicious_ip
+    siem: sentinel
+
+    fields:
+      ipAddress: indicator
+      threatType: threat_type
+      severity: severity
+      confidence: confidence
+      source: sentinel_source
+      expiryDate: sentinel_expiry_date
+
+    defaults:
+      indicator_type: ip
+
+
+  - lookup_id: LKP-002
+    name: domain
+    siem: sentinel
+
+    fields:
+      domainName: indicator
+      threatType: threat_type
+      severity: severity
+      confidence: confidence
+      source: sentinel_source
+      expiryDate: sentinel_expiry_date
+
+    defaults:
+      indicator_type: domain

@@ -1,0 +1,32 @@
+mappings:
+
+  - lookup_id: LKP-001
+    name: malicious_ip
+    siem: splunk
+
+    fields:
+      ip: indicator
+      category: threat_type
+      severity: severity
+      confidence: confidence
+      owner: splunk_owner
+      created_by: splunk_created_by
+
+    defaults:
+      indicator_type: ip
+
+
+  - lookup_id: LKP-002
+    name: domain
+    siem: splunk
+
+    fields:
+      domain: indicator
+      category: threat_type
+      severity: severity
+      confidence: confidence
+      owner: splunk_owner
+      created_by: splunk_created_by
+
+    defaults:
+      indicator_type: domain

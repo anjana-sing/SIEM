@@ -1,0 +1,4 @@
+ip,category,severity,confidence,owner,created_by
+192.168.10.10,c2,high,95,soc,threat-intel
+10.10.20.30,malware,critical,99,soc,threat-intel
+172.16.50.5,scanner,medium,80,ir-team,analyst1

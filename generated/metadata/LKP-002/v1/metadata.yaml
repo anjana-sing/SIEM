@@ -1,0 +1,64 @@
+lookups:
+
+  - lookup_id: LKP-001
+    name: malicious_ip
+
+    canonical:
+      enabled: true
+      key: indicator
+
+    sources:
+      splunk:
+        file: input/files/splunk_malicious_ip.csv
+      sentinel:
+        file: input/files/sentinel_bad_ip.csv
+      chronicle:
+        file: null
+
+    targets:
+      splunk:
+        enabled: true
+        lookup_name: malicious_ip_lookup
+
+      sentinel:
+        enabled: true
+        lookup_name: MaliciousIPWatchlist
+
+      chronicle:
+        enabled: true
+        lookup_name: malicious-ip-reference-list
+
+
+  - lookup_id: LKP-002
+    name: domain
+
+    canonical:
+      enabled: true
+      key: indicator
+
+    sources:
+      splunk:
+        file: input/files/splunk_domain.csv
+      sentinel:
+        file: null
+      chronicle:
+        file: null
+
+    targets:
+      splunk:
+        enabled: true
+        lookup_name: domain_lookup
+
+      sentinel:
+        enabled: false
+        lookup_name: domainWatchlist
+
+      chronicle:
+        enabled: false
+        lookup_name: domain-reference-list
+
+    deploy:
+      splunk:
+        namespace: lookup_editor
+      sentinel: {}
+      chronicle: {}

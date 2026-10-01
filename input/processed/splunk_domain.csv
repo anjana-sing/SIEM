@@ -1,0 +1,4 @@
+domain,category,severity,confidence,owner,created_by
+qa-example.org,c2,medium,95,ir-team,analyst6
+qa1-example.org,c2,medium,95,ir-team,analyst7
+dev-example.org,c2,medium,95,ir-team,analyst7

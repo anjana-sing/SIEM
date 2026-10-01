@@ -1,0 +1,60 @@
+{
+  "manifest_version": 1,
+  "lookup_id": "LKP-002",
+  "lookup_name": "domain",
+  "generation_version": "v1",
+  "generation_mode": "input",
+  "source_commit_sha": "76e390113fcbe6d0ef1a075b36242891d74b17c0",
+  "created_at": "2026-09-30T04:47:37.960396+00:00",
+  "canonical": {
+    "path": "lookups/domain.csv",
+    "sha256": "e4ed82cd74878c8b95d0a17bdb4b37cdfa720a9b4419beeee7fb871f7b628160"
+  },
+  "configuration_snapshot": {
+    "deployment_config": {
+      "path": "config/deployment.yaml",
+      "sha256": "58e98747ec18e1bc155a5dacd08554eb627fe2cc70aa29ead7b6f8aa979ce38b"
+    },
+    "versioned_files": [
+      {
+        "path": "generated/lookups/LKP-002/v1/domain.csv",
+        "sha256": "e4ed82cd74878c8b95d0a17bdb4b37cdfa720a9b4419beeee7fb871f7b628160"
+      },
+      {
+        "path": "generated/metadata/LKP-002/v1/metadata.yaml",
+        "sha256": "7c5a4230852a8996b548f1dff941c180fabdbcb4faad9c9b35cc28c6614d09b8"
+      },
+      {
+        "path": "generated/schema/LKP-002/v1/schema.yaml",
+        "sha256": "06097a50833ac59c26d326a5497e26035c7be1fbe1a8a69e0a17b2ec8f969278"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v1/chronicle.yaml",
+        "sha256": "ce4be5a13987591b43c9173d6b31b74054292c32e756ee8556e829c0a4bc718e"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v1/sentinel.yaml",
+        "sha256": "d112f01256d0f50c19521c8395e37ba196390e4c8894c265129889daa1cf8b5a"
+      },
+      {
+        "path": "generated/mapping/LKP-002/v1/splunk.yaml",
+        "sha256": "b10d0af3bab150aed9113dd5e1901d0e4f295bedcc41d249a54fef933ee4e7a5"
+      }
+    ]
+  },
+  "targets": {
+    "splunk": {
+      "lookup_name": "domain_lookup",
+      "path": "generated/splunk/LKP-002/domain_lookup.csv",
+      "sha256": "282a668ce4a9df838242bf336458e302774e7f4a6f62de8a6c0a265cf3db1392",
+      "row_count": 3
+    }
+  },
+  "deployment": {
+    "splunk": {
+      "status": "success",
+      "http_status": 200,
+      "message": "C:\\Program Files\\Splunk\\etc\\apps\\lookup_editor\\lookups\\domain_lookup.csv"
+    }
+  }
+}

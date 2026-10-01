@@ -1,0 +1,102 @@
+lookups:
+
+  - lookup_id: LKP-001
+    name: malicious_ip
+    key: indicator
+
+    common_fields:
+      indicator:
+        type: string
+        required: true
+
+      indicator_type:
+        type: string
+        required: true
+
+      threat_type:
+        type: string
+        required: true
+
+      severity:
+        type: string
+        required: false
+
+      confidence:
+        type: integer
+        required: false
+
+    siem_specific_fields:
+
+      splunk:
+        owner:
+          type: string
+          required: false
+
+        created_by:
+          type: string
+          required: false
+
+      sentinel:
+        source:
+          type: string
+          required: false
+
+        expiry_date:
+          type: date
+          required: false
+
+      chronicle:
+        priority:
+          type: string
+          required: false
+
+
+  - lookup_id: LKP-002
+    name: domain
+    key: indicator
+
+    common_fields:
+      indicator:
+        type: string
+        required: true
+
+      indicator_type:
+        type: string
+        required: true
+
+      threat_type:
+        type: string
+        required: true
+
+      severity:
+        type: string
+        required: false
+
+      confidence:
+        type: integer
+        required: false
+
+    siem_specific_fields:
+
+      splunk:
+        owner:
+          type: string
+          required: false
+
+        created_by:
+          type: string
+          required: false
+
+      sentinel:
+        source:
+          type: string
+          required: false
+
+        expiry_date:
+          type: date
+          required: false
+
+      chronicle:
+        priority:
+          type: string
+          required: false
